@@ -1,4 +1,4 @@
-module dp_ram (
+module my_dp_ram (
     input   r_clk,
             r_enable,
             r_addr,

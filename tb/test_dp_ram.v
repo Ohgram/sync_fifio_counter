@@ -26,7 +26,7 @@ module test_dp_ram ();
         #100 w_enable=0;
         #10 $finish;
     end
-    dp_ram u1(
+    my_dp_ram u1(
                 .r_clk(r_clk),
                 .r_enable(r_enable),
                 .r_addr(out_addr),
