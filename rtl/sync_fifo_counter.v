@@ -21,63 +21,69 @@ module sync_fifo_counter (
     reg [ADDR_WIDTH-1:0]fcounter;
     //all temp reg
     reg [ADDR_WIDTH-1:0]w_addr,r_addr;
-    reg [DATA_WIDTH-1:0]memo[ADDR_WIDTH-1:0];
+    wire w_allow,r_allow;
+
+    assign w_allow=w_enable&&!full;
+    assign r_allow=r_enable&&!empty;
 
 
     //empty
-    always @(posedge clk or negedge reset) begin
-        if(fcounter==0||(fcounter=='b1&&r_enable==1)||!reset)
+    always @(posedge clk or posedge reset) begin
+        if(reset)
             empty<=1;
-        else
-            empty<=0;
+        else if(w_enable==0&&fcounter[8:1]=='h00)//whenever empty=1 the w_enable must=0
+                if(fcounter[0]==0||r_enable==1)
+                    empty<=1;
+                else
+                    empty<=0;
+            else
+                empty<=0;
     end
     //full
-    always @(posedge clk or negedge reset) begin
-        if (!reset)
+    always @(posedge clk or posedge reset) begin
+        if (reset)
             full<=0;
-        else if(fcounter==ADDR_WIDTH-1||(fcounter==ADDR_WIDTH-2&&w_enable==1))
-            full<=1;//when fcounter first time become to 0 or always turn 0 put full to 1
+        else if(r_enable==0&&fcounter[8:1]==8'hFF)
+                if(fcounter[0]==1||w_enable==1)
+                    full<=1;//when fcounter first time become to 0 or always turn 0 put full to 1
+                else
+                    full<=0;
             else
-            full<=0;
+                full<=0;
     end
-    
-    //counter
-    always @(posedge clk or negedge reset) begin
+    //w_addr
+    always @(posedge clk or posedge reset) begin
         if(reset)
-            fcounter<=9'b0;
-        else if(empty==0&&r_enable==1)
-            fcounter<=fcounter-1'b1;
-        else if(full==0&&w_enable==1)
-            fcounter<=fcounter+1'b1;
-            
+            w_addr<='b0;
+        else if(w_allow)
+            w_addr<=w_addr+1'b1;
+    end
+    //r_addr
+    always @(posedge clk or posedge reset) begin
+        if(reset)
+            r_addr<='b0;
+        else if(r_allow)
+            r_addr<=r_addr+1'b1;
     end
 
-    //write_address
-    always @(posedge clk or negedge reset) begin
-        if(!reset)
-            w_addr<='b1;
-        else if(empty==0&&w_enable==1)
-            w_addr<=w_addr+1'b1;
-            else
-            w_addr<=w_addr;
-    end
-    //read_address
-    always @(posedge clk or negedge reset) begin
-        if(!reset)
-            r_addr<='b1;
-        else if(full==0&&r_enable==1)
-            r_addr<=r_addr+1'b1;
-        else
-            r_addr<=r_addr;
+    //counter
+    always @(posedge clk or posedge reset) begin
+        if(reset)
+            fcounter<=9'b0;
+        else if(r_allow==1&&w_allow==0)
+            fcounter<=fcounter-1'b1;
+        else if(r_allow==0&&w_allow==1)
+            fcounter<=fcounter+1'b1;
+            
     end
 
     my_dp_ram  u1(
             .r_clk(clk),
             .r_enable(r_enable),
-            .r_addr(),
+            .r_addr(r_addr),
             .w_clk(clk),
             .w_enable(w_enable),
-            .w_addr(),
+            .w_addr(w_addr),
             .w_data(w_data),
             .r_data(r_data)
 );
